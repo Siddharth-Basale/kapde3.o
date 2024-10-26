@@ -1,0 +1,112 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Image Upload or Capture</title>
+    <style>
+      body {
+        font-family: Arial, sans-serif;
+        text-align: center;
+        padding: 20px;
+      }
+      #result {
+        margin-top: 20px;
+      }
+    </style>
+  </head>
+  <body>
+    <h1>Image Upload or Capture</h1>
+    <input type="file" id="fileInput" accept="image/*" />
+    <button id="captureBtn">Open Camera</button>
+    <br /><br />
+    <video id="video" width="300" height="200" style="display: none"></video>
+    <canvas id="canvas" width="300" height="200" style="display: none"></canvas>
+    <button id="snapBtn" style="display: none">Snap Photo</button>
+    <div id="result"></div>
+
+    <script>
+      document
+        .getElementById("captureBtn")
+        .addEventListener("click", function () {
+          const video = document.getElementById("video");
+          const canvas = document.getElementById("canvas");
+          const snapBtn = document.getElementById("snapBtn");
+
+          // Access the camera
+          navigator.mediaDevices
+            .getUserMedia({ video: true })
+            .then((stream) => {
+              video.srcObject = stream;
+              video.play();
+              video.style.display = "block";
+              snapBtn.style.display = "block";
+            })
+            .catch((err) => {
+              console.error("Error accessing camera: " + err);
+            });
+
+          snapBtn.addEventListener("click", function () {
+            const context = canvas.getContext("2d");
+            context.drawImage(video, 0, 0, canvas.width, canvas.height);
+            const imgData = canvas.toDataURL("image/png");
+
+            // Stop the video stream
+            const stream = video.srcObject;
+            const tracks = stream.getTracks();
+            tracks.forEach((track) => track.stop());
+            video.style.display = "none";
+            snapBtn.style.display = "none";
+
+            // Send the image data to the server
+            sendImage(imgData);
+          });
+        });
+
+      document
+        .getElementById("fileInput")
+        .addEventListener("change", function () {
+          const file = this.files[0];
+          if (file) {
+            const reader = new FileReader();
+            reader.onload = function (e) {
+              sendImage(e.target.result);
+            };
+            reader.readAsDataURL(file);
+          }
+        });
+
+      function sendImage(imageData) {
+        const formData = new FormData();
+        const blob = dataURLtoBlob(imageData);
+        formData.append("file", blob, "image.png");
+
+        fetch("/predict", {
+          method: "POST",
+          body: formData,
+        })
+          .then((response) => response.json())
+          .then((data) => {
+            document.getElementById(
+              "result"
+            ).innerText = `Prediction: ${data.prediction}`;
+          })
+          .catch((error) => {
+            console.error("Error:", error);
+            document.getElementById("result").innerText =
+              "Error making prediction";
+          });
+      }
+
+      function dataURLtoBlob(dataURL) {
+        const byteString = atob(dataURL.split(",")[1]);
+        const mimeString = dataURL.split(",")[0].split(":")[1].split(";")[0];
+        const ab = new Uint8Array(byteString.length);
+        for (let i = 0; i < byteString.length; i++) {
+          ab[i] = byteString.charCodeAt(i);
+        }
+        return new Blob([ab], { type: mimeString });
+      }
+    </script>
+  </body>
+</html>
