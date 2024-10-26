@@ -1,13 +1,15 @@
 from flask import Flask, request, jsonify, render_template
 from PIL import Image
 import numpy as np
-import tensorflow as tf
 import io
+import pickle  # Import pickle to load the model
 
 app = Flask(__name__)
 
 # Load your pre-trained model
-model = tf.keras.models.load_model('model.h5')
+with open('model.pkl', 'rb') as f:  # Use pickle to load the model
+    model = pickle.load(f)
+
 
 def preprocess_image(image):
     # Resize the image to 300x300 as expected by the model
